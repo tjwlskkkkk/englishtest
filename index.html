@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>수능 단어 탐험대</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f2b3d;--bg2:#17445f;--card:#f4f7fb;--ink:#12283a;--coin:#ffd23f;--ok:#2fc986;--bad:#ff5d5d;--mute:#8aa6ba}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:'Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:radial-gradient(circle at 20% 0,var(--bg2),var(--bg) 60%);color:#fff;display:flex;justify-content:center;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+#app{width:100%;max-width:480px;display:flex;flex-direction:column;padding:18px 0}
+.screen{display:none;flex:1;flex-direction:column}
+.screen.on{display:flex}
+button{font:inherit;cursor:pointer;border:0}
+button:focus-visible{outline:3px solid var(--coin);outline-offset:2px}
+
+/* 시작 */
+#start{justify-content:center;text-align:center;gap:18px}
+#start h1{font-size:46px;line-height:1.1}
+#start p{color:var(--mute);font-size:18px}
+.big{background:var(--coin);color:var(--ink);font-size:24px;padding:16px 28px;border-radius:18px;box-shadow:0 6px 0 #c79a00;transition:transform .08s,box-shadow .08s}
+.big:active{transform:translateY(5px);box-shadow:0 1px 0 #c79a00}
+.ghost{background:transparent;color:var(--mute);font-size:16px;padding:8px}
+.best{font-size:18px}.best b{color:var(--coin)}
+.rules{background:rgba(255,255,255,.08);border-radius:16px;padding:14px 18px;text-align:left;font-size:16px;line-height:1.7}
+
+/* 게임 */
+.hud{display:flex;justify-content:space-between;align-items:center;font-size:20px;margin-bottom:10px}
+.hearts{letter-spacing:3px}
+.coin{color:var(--coin)}
+.lv{font-size:15px;color:var(--mute)}
+.bar{height:12px;background:rgba(255,255,255,.15);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:100%;background:var(--ok);border-radius:99px;transform-origin:left}
+.bar i.low{background:var(--bad)}
+.wordcard{background:var(--card);color:var(--ink);border-radius:28px;margin:18px 0;padding:36px 16px 26px;text-align:center;box-shadow:0 8px 0 rgba(0,0,0,.25);position:relative}
+.wordcard.shake{animation:shake .35s}
+@keyframes shake{20%,60%{transform:translateX(-10px)}40%,80%{transform:translateX(10px)}}
+.word{font-size:clamp(36px,11vw,54px);word-break:break-all}
+.say{margin-top:10px;background:#dfe9f3;color:var(--ink);border-radius:99px;padding:6px 16px;font-size:16px}
+.combo{position:absolute;top:12px;right:16px;color:#e8590c;font-size:18px;min-height:22px}
+.choices{display:flex;flex-direction:column;gap:12px}
+.choice{background:#fff;color:var(--ink);font-size:21px;padding:18px 14px;border-radius:18px;box-shadow:0 5px 0 #b8c7d6;text-align:center;transition:transform .08s}
+.choice:active{transform:translateY(3px)}
+.choice.ok{background:var(--ok);color:#fff;box-shadow:0 5px 0 #1d9c66}
+.choice.bad{background:var(--bad);color:#fff;box-shadow:0 5px 0 #c53a3a}
+.choices.lock .choice{pointer-events:none}
+.float{position:fixed;left:50%;top:38%;transform:translateX(-50%);font-size:34px;color:var(--coin);pointer-events:none;animation:up .8s forwards}
+@keyframes up{to{opacity:0;transform:translate(-50%,-50px)}}
+
+/* 결과 */
+#result{gap:14px;text-align:center}
+#result h2{font-size:34px;margin-top:6px}
+.score{font-size:64px;color:var(--coin);line-height:1}
+.stats{color:var(--mute);font-size:18px}
+.wrong{background:rgba(255,255,255,.08);border-radius:16px;padding:12px 16px;text-align:left;max-height:34vh;overflow:auto;font-size:17px}
+.wrong h3{font-size:18px;margin-bottom:6px}
+.wrong div{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.wrong span:last-child{color:var(--mute);text-align:right}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main id="app">
+
+<section id="start" class="screen on">
+  <h1>수능 단어<br>탐험대</h1>
+  <p>영어 단어를 보고 알맞은 뜻을 골라요</p>
+  <div class="rules">❤️ 하트 3개로 시작해요<br>⏱ 시간 안에 못 고르면 하트가 깎여요<br>🔥 연속으로 맞히면 코인을 더 많이 받아요<br>⭐ 5문제를 맞힐 때마다 레벨이 올라요</div>
+  <div class="best">최고 기록 <b id="best">0</b>코인</div>
+  <button class="big" id="go">게임 시작</button>
+</section>
+
+<section id="play" class="screen">
+  <div class="hud"><span class="hearts" id="hearts"></span><span class="lv" id="lv"></span><span class="coin" id="score">🪙 0</span></div>
+  <div class="bar"><i id="timer"></i></div>
+  <div class="wordcard" id="card">
+    <div class="combo" id="combo"></div>
+    <div class="word" id="word"></div>
+    <button class="say" id="say" aria-label="발음 듣기">🔊 발음 듣기</button>
+  </div>
+  <div class="choices" id="choices"></div>
+</section>
+
+<section id="result" class="screen">
+  <h2 id="rtitle">게임 끝!</h2>
+  <div class="score" id="rscore">0</div>
+  <div class="stats" id="rstats"></div>
+  <div class="wrong" id="wrong"></div>
+  <button class="big" id="again">다시 도전</button>
+  <button class="ghost" id="home">처음 화면으로</button>
+</section>
+
+</main>
+<script>
+// 단어|뜻  — 여기에 줄을 추가하면 단어가 늘어납니다.
+const RAW=`abandon|버리다, 포기하다
+absorb|흡수하다
+abstract|추상적인
+accomplish|성취하다
+accurate|정확한
+acquire|얻다, 습득하다
+adapt|적응하다
+adequate|충분한, 적절한
+adjust|조정하다
+admire|감탄하다, 존경하다
+advocate|옹호하다
+aggressive|공격적인
+allocate|할당하다
+ambiguous|애매모호한
+analyze|분석하다
+anticipate|예상하다
+apparent|명백한
+appropriate|적절한
+approach|접근(하다)
+arbitrary|임의의, 제멋대로인
+assume|가정하다
+attach|붙이다
+attain|달성하다
+attitude|태도
+authentic|진짜의
+available|이용 가능한
+aware|알고 있는
+barrier|장벽
+behave|행동하다
+benefit|이익
+bias|편견
+boundary|경계
+brief|짧은, 간결한
+capable|능력 있는
+cautious|조심스러운
+challenge|도전(하다)
+cherish|소중히 여기다
+circumstance|상황, 환경
+cite|인용하다
+clarify|명확히 하다
+cognitive|인지의
+coincide|동시에 일어나다
+collapse|무너지다
+commit|저지르다, 전념하다
+compensate|보상하다
+competent|유능한
+complex|복잡한
+comprehend|이해하다
+conceal|숨기다
+concentrate|집중하다
+conclude|결론짓다
+conduct|수행하다, 행동
+confirm|확인하다
+conflict|갈등
+consequence|결과
+conserve|보존하다
+considerable|상당한
+consistent|일관된
+constant|끊임없는
+construct|건설하다
+consume|소비하다
+contemporary|현대의
+contradict|모순되다
+contribute|기여하다
+controversy|논란
+convention|관습, 대회
+convey|전달하다
+cooperate|협력하다
+crucial|매우 중요한
+cultivate|재배하다, 기르다
+decline|감소하다, 거절하다
+deliberate|고의적인, 신중한
+demonstrate|보여주다, 입증하다
+denote|의미하다
+depict|묘사하다
+derive|유래하다
+detect|감지하다
+devote|바치다, 헌신하다
+diminish|줄어들다
+discard|버리다
+discipline|훈련, 규율
+distinct|뚜렷한, 별개의
+distort|왜곡하다
+diverse|다양한
+dominate|지배하다
+drastic|극단적인
+dwell|거주하다
+efficient|효율적인
+eliminate|제거하다
+embrace|껴안다, 받아들이다
+emerge|나타나다
+emphasize|강조하다
+enhance|향상시키다
+essential|필수적인
+establish|설립하다
+estimate|추정하다
+evaluate|평가하다
+evidence|증거
+evolve|진화하다
+exaggerate|과장하다
+exceed|초과하다
+exclude|제외하다
+exhaust|고갈시키다, 지치게 하다
+expand|확장하다
+explicit|명백한
+exploit|이용하다, 착취하다
+expose|노출시키다
+fabricate|조작하다
+facilitate|촉진하다
+feasible|실현 가능한
+flexible|유연한
+fluctuate|변동하다
+fundamental|근본적인
+generate|만들어내다
+genuine|진짜의
+gradual|점진적인
+guarantee|보장하다
+hesitate|망설이다
+hypothesis|가설
+identify|확인하다, 식별하다
+illustrate|설명하다, 보여주다
+immense|거대한
+implement|실행하다
+imply|암시하다
+inevitable|피할 수 없는
+infer|추론하다
+inherent|내재된
+initial|처음의
+innovative|혁신적인
+insight|통찰력
+inspire|영감을 주다
+integrate|통합하다
+intense|강렬한
+interpret|해석하다
+isolate|고립시키다
+justify|정당화하다
+launch|시작하다, 출시하다
+maintain|유지하다
+manipulate|조종하다
+mature|성숙한
+modest|겸손한, 보통의
+monitor|감시하다
+negotiate|협상하다
+neglect|소홀히 하다
+neutral|중립적인
+notion|개념
+obstacle|장애물
+obtain|얻다
+obvious|명백한
+occupy|차지하다
+outcome|결과
+overcome|극복하다
+perceive|인식하다
+persist|지속하다
+persuade|설득하다
+phenomenon|현상
+potential|잠재력, 잠재적인
+predict|예측하다
+prejudice|편견
+preserve|보존하다
+prevail|우세하다
+primary|주요한
+priority|우선순위
+profound|깊은, 심오한
+prohibit|금지하다
+promote|촉진하다, 승진시키다
+proportion|비율
+pursue|추구하다
+rational|이성적인
+reluctant|꺼리는
+rely|의존하다
+reinforce|강화하다
+resemble|닮다
+resolve|해결하다
+restrict|제한하다
+reveal|드러내다
+reverse|반대의, 뒤집다
+rigid|엄격한, 뻣뻣한
+scarce|부족한
+shortage|부족
+significant|중요한, 상당한
+sophisticated|정교한, 세련된
+spontaneous|자발적인
+stable|안정된
+stimulate|자극하다
+strategy|전략
+submit|제출하다
+subtle|미묘한
+sufficient|충분한
+suppress|억누르다
+surpass|능가하다
+sustain|지속하다
+temporary|일시적인
+tend|경향이 있다
+tolerate|참다, 용인하다
+transform|변형시키다
+transmit|전송하다
+trivial|사소한
+ultimate|궁극적인
+undergo|겪다
+valid|타당한
+vanish|사라지다
+vast|광대한
+violate|위반하다
+vital|필수적인, 생명의
+vivid|생생한
+vulnerable|취약한
+withdraw|철수하다, 인출하다
+yield|산출하다, 양보하다`;
+
+const WORDS=RAW.trim().split('\n').map(l=>{const [w,m]=l.split('|');return{w:w.trim(),m:m.trim()}});
+const $=id=>document.getElementById(id);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const store={get(){try{return +localStorage.getItem('suneungBest')||0}catch(e){return 0}},set(v){try{localStorage.setItem('suneungBest',v)}catch(e){}}};
+
+let S,queue=[],tick=null,audio=null;
+
+function beep(f,d){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=f;o.type='triangle';g.gain.value=.08;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d);o.stop(audio.currentTime+d)}catch(e){}}
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id))}
+function limit(){return Math.max(5,10-Math.floor((S.level-1)/2))}
+
+function start(){
+  S={lives:3,score:0,right:0,total:0,combo:0,level:1,cur:null,wrong:[]};
+  queue=[];show('play');next();
+}
+function hud(){
+  $('hearts').textContent='❤️'.repeat(S.lives)+'🖤'.repeat(3-S.lives);
+  $('score').textContent='🪙 '+S.score;
+  $('lv').textContent='Lv.'+S.level;
+  $('combo').textContent=S.combo>=2?'🔥 '+S.combo+'연속':'';
+}
+function next(){
+  if(!queue.length)queue=shuffle(WORDS.slice());
+  const q=queue.pop();S.cur=q;
+  const others=shuffle(WORDS.filter(x=>x.m!==q.m)).slice(0,2);
+  const opts=shuffle([q,...others]);
+  $('word').textContent=q.w;
+  $('card').classList.remove('shake');
+  const box=$('choices');box.classList.remove('lock');box.innerHTML='';
+  opts.forEach(o=>{
+    const b=document.createElement('button');b.className='choice';b.textContent=o.m;
+    b.onclick=()=>answer(b,o.m===q.m);box.appendChild(b);
+  });
+  hud();runTimer();
+}
+function runTimer(){
+  clearInterval(tick);
+  const t=limit()*1000,t0=Date.now(),bar=$('timer');
+  bar.classList.remove('low');bar.style.transform='scaleX(1)';
+  tick=setInterval(()=>{
+    const r=Math.max(0,1-(Date.now()-t0)/t);
+    bar.style.transform='scaleX('+r+')';
+    bar.classList.toggle('low',r<.3);
+    if(r<=0){clearInterval(tick);answer(null,false)}
+  },50);
+}
+function answer(btn,ok){
+  clearInterval(tick);
+  const box=$('choices');box.classList.add('lock');
+  S.total++;
+  [...box.children].forEach(c=>{if(c.textContent===S.cur.m)c.classList.add('ok')});
+  if(ok){
+    S.right++;S.combo++;
+    const gain=10+Math.min(S.combo-1,10)*2;S.score+=gain;
+    beep(660,.15);setTimeout(()=>beep(880,.15),90);pop('+'+gain);
+    if(S.right%5===0){S.level++}
+  }else{
+    S.lives--;S.combo=0;
+    if(btn)btn.classList.add('bad');
+    $('card').classList.add('shake');beep(180,.35);
+    S.wrong.push(S.cur);
+  }
+  hud();
+  setTimeout(()=>S.lives<=0?finish():next(),ok?650:1200);
+}
+function pop(t){const e=document.createElement('div');e.className='float';e.textContent=t;document.body.appendChild(e);setTimeout(()=>e.remove(),800)}
+function finish(){
+  const best=store.get(),isNew=S.score>best;
+  if(isNew)store.set(S.score);
+  $('rtitle').textContent=isNew&&S.score>0?'🎉 최고 기록!':'게임 끝!';
+  $('rscore').textContent=S.score;
+  $('rstats').textContent=S.total+'문제 중 '+S.right+'개 정답 · Lv.'+S.level;
+  const uniq=[...new Map(S.wrong.map(w=>[w.w,w])).values()];
+  $('wrong').innerHTML=uniq.length?'<h3>📝 틀린 단어</h3>'+uniq.map(w=>`<div><span>${w.w}</span><span>${w.m}</span></div>`).join(''):'<h3>틀린 단어가 없어요!</h3>';
+  $('best').textContent=Math.max(best,S.score);
+  show('result');
+}
+function speak(){
+  try{const u=new SpeechSynthesisUtterance(S.cur.w);u.lang='en-US';u.rate=.9;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}
+}
+$('go').onclick=start;$('again').onclick=start;
+$('home').onclick=()=>{$('best').textContent=store.get();show('start')};
+$('say').onclick=speak;
+$('best').textContent=store.get();
+</script>
+</body>
+</html>
